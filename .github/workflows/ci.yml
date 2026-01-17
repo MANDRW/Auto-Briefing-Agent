@@ -23,8 +23,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         # Instalujemy pytest, jeśli nie ma go w requirements (ale u Ciebie jest)
-        pip install pytest httpx 
-
+        pip install pytest httpx
     - name: Run Tests
       run: |
         pytest tests/
