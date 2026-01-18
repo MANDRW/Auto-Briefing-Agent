@@ -6,7 +6,6 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
-      - ./articles.db:/app/articles.db
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
@@ -16,3 +15,18 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_SECURE_COOKIE=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - api
+
+
+volumes:
+  n8n_data:
