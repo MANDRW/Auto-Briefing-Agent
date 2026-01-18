@@ -49,3 +49,4 @@ ENV/
 Thumbs.db
 
 n8n_data/
+.env
