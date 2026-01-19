@@ -1,0 +1,358 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://auto-briefing-agent:8000/scrape",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        208,
+        0
+      ],
+      "id": "4c3e51e9-a1e5-4e1c-8eb5-a058b097f396",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "db_path": "/data_shared/articles.db",
+        "query_type": "SELECT",
+        "query": "SELECT * FROM article\nWHERE is_processed = 0\nORDER BY created_at DESC \nLIMIT 5;           ",
+        "additionalOptions": {}
+      },
+      "type": "n8n-nodes-sqlite3.sqliteNode",
+      "typeVersion": 1,
+      "position": [
+        624,
+        0
+      ],
+      "id": "a07a9217-9ffa-4031-b6ed-e284b1c7a4ff",
+      "name": "Sqlite Node"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        384,
+        0
+      ],
+      "id": "6d235d37-8bc9-4de9-98dc-aeb72495a378",
+      "name": "Aggregate1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const articles = items[0].json; \n\nreturn articles.map(item => {\n  return {\n    json: {\n      title: item.title,\n      url: item.url\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        16
+      ],
+      "id": "a0512023-c908-4e49-9438-348e5100af68",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "url": "=https://r.jina.ai/{{ $json.url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1104,
+        48
+      ],
+      "id": "1c739672-f11c-4c85-a64c-3720fcf62421",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        48
+      ],
+      "id": "23c01b07-2ef9-468b-8621-6ee54003830a",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = items[0].json;\n\nconst fullText = $('LLM').first().json.text\nconst emailFromEnv = $input.first().json.email_to\n\nconst subjectMatch = fullText.match(/^Subject:\\s*(.*)/i);\nconst subject = subjectMatch ? subjectMatch[1].trim() : 'Newsletter Update';\nconst body = fullText.replace(/^Subject:.*\\n*/i, '').trim();\n\nreturn {\n  subject: subject,\n  body: body,\n  recipient: emailFromEnv\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2096,
+        64
+      ],
+      "id": "f1fa068b-e43a-4edc-b9b5-8a19a6f4a573",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "79871967-861b-4a02-85ad-dfe353efd026",
+              "name": "email_to",
+              "value": "=example@mail.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1760,
+        80
+      ],
+      "id": "de432bbd-8112-44a1-8220-be4b39c23f8c",
+      "name": "SET EMAIL"
+    },
+    {
+      "parameters": {
+        "db_path": "/data_shared/articles.db",
+        "query": "=UPDATE article \nSET is_processed = 1 \nWHERE id IN (\n  {{ $('Sqlite Node').item.json[0].id }},\n  {{ $('Sqlite Node').item.json[1].id }},\n  {{ $('Sqlite Node').item.json[2].id }},\n  {{ $('Sqlite Node').item.json[3].id }},\n  {{ $('Sqlite Node').item.json[4].id }}\n);",
+        "additionalOptions": {}
+      },
+      "type": "n8n-nodes-sqlite3.sqliteNode",
+      "typeVersion": 1,
+      "position": [
+        2592,
+        64
+      ],
+      "id": "c24122eb-914e-4fb6-bd97-b1d657bf2139",
+      "name": "Sqlite Node1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -96,
+        0
+      ],
+      "id": "1cb21199-001e-4fd9-9547-2149479185e1",
+      "name": "SET HOUR TO SEND"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Act as a professional tech newsletter editor. Your goal is to transform the provided list of articles into an engaging, high-value email newsletter.\n\nDATA INPUT:\n{{ $json.data }}\n\n\nCONSTRAINTS & STRUCTURE:\n1. Subject Line: Create a compelling, curiosity-driven subject line (include one relevant emoji).\n2. Introduction: Write a short (2-3 sentences) opening that sets the stage for today's updates.\n3. Content Body:\n   - For each article, use a bold heading with the Title.\n   - Write a concise, 2-3 sentence summary based on the provided \"data\". Explain the \"So What?\" – why should a professional care about this?\n   - Include a clear \"Read more\" link using the provided URL.\n4. Editorial Tone: Professional, slightly witty, and insightful. Avoid marketing fluff like \"game-changing\" or \"revolutionary\" unless truly earned.\n5. Formatting: Use clean Markdown.\n6. Language: English\n\n\nOUTPUT:\nReturn only the final newsletter content, ready to be sent. Use bullet points for key features and bold the most important insights. Keep paragraphs short (max 3 sentences) to ensure readability on mobile devices.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1424,
+        48
+      ],
+      "id": "75529b60-5440-4039-9d1c-8260bdafcc07",
+      "name": "LLM"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1424,
+        240
+      ],
+      "id": "c3e42587-7c5b-4a39-94ca-fdbabe1da3aa",
+      "name": "SET CREDENTIAL"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2336,
+        64
+      ],
+      "id": "89758058-dec4-4a54-a7d2-5ef3edbed6d0",
+      "name": "SET CREDENTIAL1",
+      "webhookId": "176bcfbd-7f8d-4bab-89ab-8762996f8b68"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Aggregate1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sqlite Node": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate1": {
+      "main": [
+        [
+          {
+            "node": "Sqlite Node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "SET CREDENTIAL1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET EMAIL": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sqlite Node1": {
+      "main": [
+        []
+      ]
+    },
+    "SET HOUR TO SEND": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM": {
+      "main": [
+        [
+          {
+            "node": "SET EMAIL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET CREDENTIAL": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "LLM",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET CREDENTIAL1": {
+      "main": [
+        [
+          {
+            "node": "Sqlite Node1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "757125af-75e8-4c39-86f7-1d3c5b3c3129",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "84897e89e0b7b36c266683f0e2a257ce078b4b0348d2e159b02c8daa418c0ed7"
+  },
+  "id": "nI-Y6ZX6LLcq-NUKpIwLf",
+  "tags": []
+}

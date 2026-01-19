@@ -52,6 +52,7 @@ async def health():
     return {"status": "healthy"}
 
 
+
 @app.post("/scrape", response_model=List[dict])
 async def scrape_articles(session: Session = Depends(get_session)):
     logger.info("Scrape endpoint called")
@@ -96,6 +97,7 @@ async def scrape_articles(session: Session = Depends(get_session)):
         
         logger.info(f"Returning {len(new_articles)} new articles")
         return new_articles
+
     
     except Exception as e:
         logger.error(f"Error in scrape endpoint: {e}", exc_info=True)

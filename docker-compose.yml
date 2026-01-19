@@ -6,13 +6,26 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
-      - ./articles.db:/app/articles.db
+    env_file:
+      - .env
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_SECURE_COOKIE=false
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+    env_file:
+      - .env
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - .:/data_shared
+    depends_on:
+      - api
+
+volumes:
+  n8n_data:

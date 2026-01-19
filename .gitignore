@@ -47,3 +47,6 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
+
+n8n_data/
+.env
